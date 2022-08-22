@@ -1,0 +1,6 @@
+#!/bin/bash
+
+ENTRY_CLASS="net.catten.codec.binary.BinaryCodecCliTool"
+CLASSPATH="$HOME/.local/lib/java/*"
+
+java -cp "$CLASSPATH" "$ENTRY_CLASS" $@
