@@ -1,9 +1,11 @@
 package net.catten.codec.binary;
 
 import java.io.*;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.function.Function;
 
@@ -103,6 +105,17 @@ public class BinaryCodecCliTool {
                         bytes -> Hexagram64.getHexagram64().serialize(bytes),
                         string -> Hexagram64.getHexagram64().deserialize(string)
                 );
+            case "base64":
+                return new Codec(
+                        bytes -> Base64.getEncoder().encodeToString(bytes),
+                        string -> Base64.getDecoder().decode(string)
+                );
+
+            case "base64url":
+                return new Codec(
+                        bytes -> Base64.getUrlEncoder().encodeToString(bytes),
+                        string -> Base64.getUrlDecoder().decode(string)
+                );
             default:
                 throw new IllegalArgumentException("Unknown codec: " + name);
         }
@@ -169,6 +182,8 @@ public class BinaryCodecCliTool {
         System.err.println("           zen128: Encode/Decode binary using 128 Zen words.");
         System.err.println("           zen256: Encode/Decode binary using 256 Zen words.");
         System.err.println("       hexagram64: Encode/Decode binary using Hexagram characters.");
+        System.err.println("           base64: Encode/Decode binary using the good old base64.");
+        System.err.println("        base64url: Encode/Decode binary using base64 url-safe.");
         System.exit(0);
     }
 
