@@ -11,13 +11,13 @@ import java.util.Random;
  * The reason why start from b+4097 but not b+0 is preventing the conflict with the origin
  * Hangul4096 (Author @neruthes)
  * <p>
- * Start from b+8449(b+8193+256) is the null character area. Any character greater than or
+ * Start from b+8449(b+8193+256+32) is the null character area. Any character greater than or
  * equals the null base will consider be encode terminator.
  * <p>
  * Because the encoding unit size (2 char) is smaller than 3(bytes), extract chars for
  * padding is used. We use b+8193 to b+8448(b+8193+255, padding area 1) and b+8449 to
  * b+8480(b+8449+31, padding area 2) to encode the padding. (So in fact Hangul4096Plus is
- * Hangul4096+256+32+1Plus, Hangul4385Plus)
+ * Hangul4096+256+32+1Plus, Hangul4384Plus)
  * <p>
  * Normally, when we have Full 3 byte there, the encoding will like this:
  * 10101010 1010|1010 10101010
