@@ -1,145 +1,160 @@
 package net.catten.codec.binary;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Function;
+import java.io.ByteArrayOutputStream;
+import java.util.Random;
 
-public final class Hangul4096Plus {
-    private static final int base = '가' + 4098;
-    private static final int paddingBase = base + 4096;
-    private static final int bitMask = 0x0FFF;
+/**
+ * Hangul4096Plus use two korean characters to encode 3 bytes of data.
+ * <p>
+ * Normal data will be encoded base on the char b+4097 (b means the code of '가',
+ * b+4097 means started from the code of '가' + 4097) in 4096 chars (b+4097+4095 = b+8192).
+ * The reason why start from b+4097 but not b+0 is preventing the conflict with the origin
+ * Hangul4096 (Author @neruthes)
+ * <p>
+ * Start from b+8449(b+8193+256) is the null character area. Any character greater than or
+ * equals the null base will consider be encode terminator.
+ * <p>
+ * Because the encoding unit size (2 char) is smaller than 3(bytes), extract chars for
+ * padding is used. We use b+8193 to b+8448(b+8193+255, padding area 1) and b+8449 to
+ * b+8480(b+8449+31, padding area 2) to encode the padding. (So in fact Hangul4096Plus is
+ * Hangul4096+256+32+1Plus, Hangul4385Plus)
+ * <p>
+ * Normally, when we have Full 3 byte there, the encoding will like this:
+ * 10101010 1010|1010 10101010
+ * [  char 1   ]|[  char 2   ]
+ * <p>
+ * When we just have 1 byte there, it will be looks like this:
+ * 10101010 ----|---- --------
+ * [  char 1   ]|[  ignored  ]
+ * In this situation, we shift the char 1 to right by 4, and use the padding area 1 to
+ * encode. Any chars lay in the padding area are considered only containing 1 byte
+ * and terminate.
+ * <p>
+ * When we have 2 bytes, it will be looks like:
+ * 10101010 1010|1010 --------
+ * [  char 1   ]|[  char 2   ]
+ * In this situation, we shift the char 2 by 8, use the padding area 2 to encode.
+ * Any chars lay in this padding area are considered only contains half byte and terminate
+ */
+public final class Hangul4096Plus implements BinaryStringSerializer, BinaryStringDeserializer {
 
-    /*
-     * Decorator
-     */
+    /****************************************************************
+     * Constants
+     ****************************************************************/
+    private static final int BASE = '가' + 4097;
+    private static final int PADDING_1_START = BASE + 4096;
+    private static final int PADDING_2_START = PADDING_1_START + 256;
+    private static final int PADDING_END = PADDING_2_START + 31;
+    private static final int NULL_START = PADDING_END + 1;
 
-    public static Decorator getDecorator() {
-        return decorator;
+    private static final int MASK = 0x0FFF;
+
+    private static final Hangul4096Plus hangul4096Plus = new Hangul4096Plus();
+
+    /****************************************************************
+     * Static methods
+     ****************************************************************/
+
+    public static Hangul4096Plus getHangul4096Plus() {
+        return hangul4096Plus;
     }
 
-    private static final Decorator decorator = new Decorator();
+    /****************************************************************
+     * Instance variables
+     ****************************************************************/
+    private final Random random = new Random(System.currentTimeMillis());
 
-    public static class Decorator implements Function<String, String> {
-        private static final List<String> segments = Arrays.asList(" ", ", ", ". ");
-
-        private Decorator() {
-
-        }
-
-        @Override
-        public String apply(String s) {
-            return null;
-        }
+    /****************************************************************
+     * Constructors
+     ****************************************************************/
+    private Hangul4096Plus() {
     }
 
-    /*
-     * ByteArray Decoder
-     */
+    /****************************************************************
+     * Implements
+     ****************************************************************/
 
-    public static StringToByteArrayDecoder getStringToByteArrayDecoder() {
-        return decoder;
-    }
+    @Override
+    public String serialize(byte[] data) {
+        if (data.length == 0) return "";
+        final int length = data.length;
+        // Pre-allocate
+        final StringBuilder sb = new StringBuilder((int) Math.ceil(length / 3.0));
+        int readPos = 0;
+        while (readPos < length) {
+            int readBits = 0;
+            int bitBuffer = 0;
 
-    private final static Decoder decoder = new Decoder();
-
-    public static class Decoder implements StringToByteArrayDecoder {
-
-        @Override
-        public byte[] decode(String str) {
-            final int length = str.length();
-            if (length == 0) return new byte[0];
-            final byte[] bytes = new byte[(int) Math.ceil(length / 2.0 * 3)];
-            int writePos = 0;
-            int readPos = 0;
-
-            while (readPos < length) {
-                int counter = 0;
-                int buffer = 0;
-                while (counter < 2 && readPos < length) {
-                    final int code = str.codePointAt(readPos++);
-                    if (code < base) continue;
-
-                    if (code < paddingBase) {
-                        buffer = (buffer << 12) | ((code - base) & bitMask);
-                        counter++;
-                        continue;
-                    }
-
-                    buffer = (buffer << 12) | ((code - paddingBase) & bitMask);
-                    switch (counter) {
-                        case 0:
-                            // 11111000_0000 0000_00000000
-                            bytes[writePos++] = (byte) ((buffer >> 4) & 0xFF);
-                            return Arrays.copyOf(bytes, writePos);
-                        case 1:
-                            // 00000000_0000 1111_00000000
-                            bytes[writePos++] = (byte) ((buffer >> 16) & 0xFF);
-                            bytes[writePos++] = (byte) ((buffer >> 8) & 0xFF);
-                            return Arrays.copyOf(bytes, writePos);
-                    }
-
-                }
-
-                for (int i = 0; i < 3; i++) bytes[writePos++] = (byte) ((buffer >> ((2 - i) * 8)) & 0xFF);
+            while (readBits < 24 && readPos < length) {
+                bitBuffer = (bitBuffer << 8) | (data[readPos++] & 0xFF);
+                readBits += 8;
             }
 
-            return Arrays.copyOf(bytes, writePos);
-        }
-    }
-
-    /*
-     * ByteArray Encoder
-     */
-
-    public static ByteArrayToStringEncoder getByteArrayToStringEncoder() {
-        return encoder;
-    }
-
-    private static final Encoder encoder = new Encoder();
-
-    public static class Encoder implements ByteArrayToStringEncoder {
-        private Encoder() {
-
-        }
-
-        @Override
-        public String encode(byte[] bytes) {
-            if (bytes.length == 0) return "";
-            final int length = bytes.length;
-            final StringBuilder sb = new StringBuilder((int) Math.ceil(bytes.length / 3.0));
-            int readPos = 0;
-            while (readPos < length) {
-                int count = 3;
-                int buffer = 0;
-
-                while (count > 0 && readPos < length) {
-                    buffer = (buffer << 8) | (bytes[readPos++] & 0xFF);
-                    count--;
+            if (readBits >= 24) {
+                while (readBits > 0) {
+                    readBits -= 12;
+                    sb.append((char) (((bitBuffer >>> readBits) & MASK) + BASE));
                 }
 
-                if (count == 0) {
-                    sb.append((char) (((buffer >> 12) & bitMask) + base));
-                    sb.append((char) ((buffer & bitMask) + base));
-                    continue;
-                }
-
-                switch (count) {
-                    case 1:
-                        //          00000000_0000 1111
-                        // 00000000_0000 1111_00000000
-                        buffer = (buffer << 8) & 0x00FFFF00;
-                        sb.append((char) (((buffer >> 12) & bitMask) + base));
-                        sb.append((char) ((buffer & bitMask) + paddingBase));
-                        return sb.toString();
-                    case 2:
-                        // 11111000_0000 0000_00000000
-                        buffer = (buffer << 16) & 0x00FF0000;
-                        sb.append((char) (((buffer >> 12) & bitMask) + paddingBase));
-                        return sb.toString();
-                }
+                continue;
             }
 
-            return sb.toString();
+            switch (readBits) {
+                case 8:
+                    sb.append((char) ((bitBuffer & 0xFF) + PADDING_1_START));
+                    break;
+                case 16:
+                    sb.append((char) (((bitBuffer >>> 4) & MASK) + BASE));
+                    sb.append((char) ((bitBuffer & 0xF) + PADDING_2_START));
+                    break;
+                default:
+                    throw new IllegalStateException("This shouldn't happen. Read bits count should in 8, 16 and 24.");
+            }
         }
+
+        return sb.toString();
+    }
+
+    @Override
+    public byte[] deserialize(String sequence) {
+        final int length = sequence.length();
+        if (length == 0) return new byte[0];
+
+        final ByteArrayOutputStream output = new ByteArrayOutputStream((int) Math.ceil(length / 2.0 * 3));
+
+        for (int readPos = 0; (readPos < length); ) {
+            int readBits = 0;
+            int bitBuffer = 0;
+
+            while (readBits < 24 && readPos < length) {
+                final int code = sequence.charAt(readPos++);
+
+                if (code < BASE) continue;
+
+                if (code >= PADDING_1_START) {
+                    if (code >= PADDING_2_START) {
+                        if (code >= NULL_START) break;
+
+                        bitBuffer = (bitBuffer << 4) | (((code - PADDING_2_START) & 0xF));
+                        readBits += 4;
+                        break;
+                    }
+
+                    bitBuffer = (code - PADDING_1_START) & 0xFF;
+                    readBits += 8;
+                    break;
+                }
+
+                bitBuffer = (bitBuffer << 12) | ((code - BASE) & MASK);
+                readBits += 12;
+            }
+
+            while (readBits > 0) {
+                readBits -= 8;
+                output.write((byte) ((bitBuffer >> (readBits)) & 0xFF));
+            }
+        }
+
+        return output.toByteArray();
     }
 }
