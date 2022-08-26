@@ -4,37 +4,47 @@ import java.io.ByteArrayOutputStream;
 import java.util.Random;
 
 /**
- * Hangul4096Plus use two korean characters to encode 3 bytes of data.
+ * <b>Hangul4096Plus</b> use two korean characters to encode 3 bytes of data.
  * <p>
- * Normal data will be encoded base on the char b+4097 (b means the code of '가',
- * b+4097 means started from the code of '가' + 4097) in 4096 chars (b+4097+4095 = b+8192).
+ * Normal data will be encoded base on the char b+4097 <small>(b means the code of '가',
+ * b+4097 means started from the code of '가' + 4097)</small> in 4096 chars
+ * <small>(b+4097+4095 = b+8192)</small>.
  * The reason why start from b+4097 but not b+0 is preventing the conflict with the origin
- * Hangul4096 (Author @neruthes)
+ * Hangul4096 <small>(Author @neruthes)</small>
  * <p>
- * Start from b+8449(b+8193+256+32) is the null character area. Any character greater than or
- * equals the null base will consider be encode terminator.
+ * Start from b+8449<small>(b+8193+256+32)</small> is the null character area. Any character
+ * greater than or equals the null base will consider be encode terminator.
  * <p>
- * Because the encoding unit size (2 char) is smaller than 3(bytes), extract chars for
- * padding is used. We use b+8193 to b+8448(b+8193+255, padding area 1) and b+8449 to
- * b+8480(b+8449+31, padding area 2) to encode the padding. (So in fact Hangul4096Plus is
- * Hangul4096+256+32+1Plus, Hangul4384Plus)
+ * Because the encoding unit size <small>(2 char)</small> is smaller than 3<small>(bytes)</small>,
+ * extract chars for padding is used. We use b+8193 to b+8448<small>(b+8193+255, padding area 1)</small>
+ * and b+8449 to b+8480<small>(b+8449+31, padding area 2)</small> to encode the padding. <small>(So in
+ * fact Hangul4096Plus is Hangul4096+256+32+1Plus, Hangul4384Plus)</small>
  * <p>
+ *
  * Normally, when we have Full 3 byte there, the encoding will like this:
+ * <pre>
  * 10101010 1010|1010 10101010
+ * ---------------------------
  * [  char 1   ]|[  char 2   ]
+ * </pre>
  * <p>
+ *
  * When we just have 1 byte there, it will be looks like this:
+ * <pre>
  * 10101010 ----|---- --------
  * [  char 1   ]|[  ignored  ]
+ * </pre>
  * In this situation, we shift the char 1 to right by 4, and use the padding area 1 to
- * encode. Any chars lay in the padding area are considered only containing 1 byte
- * and terminate.
+ * encode. Any char lay on this padding area is considered only carrying 1 byte then terminate.
  * <p>
+ *
  * When we have 2 bytes, it will be looks like:
+ * <pre>
  * 10101010 1010|1010 --------
  * [  char 1   ]|[  char 2   ]
+ * </pre>
  * In this situation, we shift the char 2 by 8, use the padding area 2 to encode.
- * Any chars lay in this padding area are considered only contains half byte and terminate
+ * Any char lay on this padding area is considered only carrying half byte then terminate.
  */
 public final class Hangul4096Plus implements BinaryStringSerializer, BinaryStringDeserializer {
 
