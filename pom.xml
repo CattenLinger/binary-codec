@@ -22,6 +22,17 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <id>shinonometn-repo-release</id>
+            <url>https://nexus.shinonometn.com/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>shinonometn-repo-snapshot</id>
+            <url>https://nexus.shinonometn.com/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>
@@ -35,6 +46,49 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+            <!--  Skip the default deploy plugin  -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.0.0-M1</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <!-- References: https://www.baeldung.com/maven-deploy-nexus  -->
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.8</version>
+                <executions>
+                    <execution>
+                        <id>default-deploy</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>deploy</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <serverId>shinonometn-public</serverId>
+                    <nexusUrl>https://nexus.shinonometn.com/</nexusUrl>
+                    <!-- See: https://github.com/sonatype/nexus-maven-plugins/blob/master/staging/maven-plugin/WORKFLOWS.md -->
+                    <skipStaging>true</skipStaging>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
